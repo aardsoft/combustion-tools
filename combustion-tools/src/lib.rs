@@ -1,4 +1,4 @@
-use std::io::{Cursor, Write, Error, ErrorKind};
+use std::io::{Cursor, Error, ErrorKind, Write};
 
 use fatfs::ReadWriteSeek;
 use include_dir::{Dir, include_dir};
@@ -8,7 +8,10 @@ static IMAGE_SIZE: usize = 1 << 20; // one MiB
 static INPUT_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/image_files");
 
 /// Copy the initial statically-defined set of files into the FAT image.
-fn populate_image<T: ReadWriteSeek>(root: &mut fatfs::Dir<T>, input_dir: &Dir) -> Result<(), Error> {
+fn populate_image<T: ReadWriteSeek>(
+    root: &mut fatfs::Dir<T>,
+    input_dir: &Dir,
+) -> Result<(), Error> {
     for file in input_dir.files() {
         let path = file.path().as_os_str().to_string_lossy();
         let mut fat_file = root.create_file(&path)?;
