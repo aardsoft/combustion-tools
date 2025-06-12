@@ -1,3 +1,12 @@
-#!/bin/sh
+#!/bin/bash
+
+set -e
+
+echo "Aardsoft Combustion image (incomplete)" >/etc/issue.d/combustion
+
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+cp root_authorized_key /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
 
 echo "Aardsoft Combustion image" >/etc/issue.d/combustion

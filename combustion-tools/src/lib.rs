@@ -7,6 +7,20 @@ use wasm_bindgen::prelude::*;
 static IMAGE_SIZE: usize = 1 << 20; // one MiB
 static INPUT_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/image_files");
 
+fn fat_add_file<T: ReadWriteSeek>(
+    root: &mut fatfs::Dir<T>,
+    path: &str,
+    contents: &[u8],
+) -> Result<(), Error> {
+    let mut fat_file = root.create_file(path)?;
+    fat_file.truncate()?;
+    let written = fat_file.write(contents)?;
+    if written != contents.len() {
+        return Err(Error::from(ErrorKind::Interrupted));
+    }
+    Ok(())
+}
+
 /// Copy the initial statically-defined set of files into the FAT image.
 fn populate_image<T: ReadWriteSeek>(
     root: &mut fatfs::Dir<T>,
@@ -14,13 +28,7 @@ fn populate_image<T: ReadWriteSeek>(
 ) -> Result<(), Error> {
     for file in input_dir.files() {
         let path = file.path().as_os_str().to_string_lossy();
-        let mut fat_file = root.create_file(&path)?;
-        fat_file.truncate()?;
-        let contents = file.contents();
-        let written = fat_file.write(contents)?;
-        if written != contents.len() {
-            return Err(Error::from(ErrorKind::Interrupted));
-        }
+        fat_add_file(root, &path, file.contents())?;
     }
     for subdir in input_dir.dirs() {
         let path = subdir.path().as_os_str().to_string_lossy();
@@ -51,4 +59,20 @@ fn init_image_internal() -> Result<Vec<u8>, Error> {
 /// populated with files supplied at compile time.
 pub fn init_image() -> Result<Vec<u8>, String> {
     init_image_internal().map_err(|e| format!("{e}"))
+}
+
+fn image_add_file_internal(image: &mut [u8], path: &str, contents: &[u8]) -> Result<(), Error> {
+    let mut seekable_image = Cursor::new(image);
+
+    let options = fatfs::FsOptions::new();
+    let fs = fatfs::FileSystem::new(&mut seekable_image, options)?;
+    let mut root = fs.root_dir();
+
+    fat_add_file(&mut root, path, contents)
+}
+
+#[wasm_bindgen]
+/// Create a file inside the given FAT image.
+pub fn image_add_file(image: &mut [u8], path: &str, contents: Vec<u8>) -> Result<(), String> {
+    image_add_file_internal(image, path, &contents).map_err(|e| format!("{e}"))
 }
