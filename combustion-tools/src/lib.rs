@@ -76,3 +76,35 @@ fn image_add_file_internal(image: &mut [u8], path: &str, contents: &[u8]) -> Res
 pub fn image_add_file(image: &mut [u8], path: &str, contents: Vec<u8>) -> Result<(), String> {
     image_add_file_internal(image, path, &contents).map_err(|e| format!("{e}"))
 }
+
+#[wasm_bindgen]
+/// Create a text file inside the given FAT image.
+/// The contents must be valid UTF-8.
+pub fn image_add_text_file(image: &mut [u8], path: &str, contents: &str) -> Result<(), String> {
+    image_add_file_internal(image, path, contents.as_bytes()).map_err(|e| format!("{e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::io::Read;
+
+    #[test]
+    fn test_add_file() {
+        let mut image = init_image_internal().unwrap();
+        let contents = b"TEST\0IMAGE";
+        let path = "file";
+        image_add_file_internal(&mut image, path, contents).unwrap();
+
+        let mut seekable_image = Cursor::new(&mut image);
+        let options = fatfs::FsOptions::new();
+        let fs = fatfs::FileSystem::new(&mut seekable_image, options).unwrap();
+        let root = fs.root_dir();
+        let mut f = root.open_file(path).unwrap();
+        let mut bytes = Vec::new();
+        let n = f.read_to_end(&mut bytes).unwrap();
+        assert_eq!(n, contents.len());
+        assert_eq!(&bytes, contents);
+    }
+}
