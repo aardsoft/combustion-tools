@@ -1,4 +1,4 @@
-use std::io::{Cursor, Error, ErrorKind, Write};
+use std::io::{Cursor, Error, Write};
 
 use fatfs::ReadWriteSeek;
 use include_dir::{Dir, include_dir};
@@ -14,11 +14,8 @@ fn fat_add_file<T: ReadWriteSeek>(
 ) -> Result<(), Error> {
     let mut fat_file = root.create_file(path)?;
     fat_file.truncate()?;
-    let written = fat_file.write(contents)?;
-    if written != contents.len() {
-        return Err(Error::from(ErrorKind::Interrupted));
-    }
-    Ok(())
+    fat_file.write_all(contents)?;
+    fat_file.flush()
 }
 
 /// Copy the initial statically-defined set of files into the FAT image.
