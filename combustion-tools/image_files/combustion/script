@@ -6,7 +6,13 @@ echo "Aardsoft Combustion image (incomplete)" >/etc/issue.d/combustion
 
 mkdir -p /root/.ssh
 chmod 700 /root/.ssh
-cp root_authorized_key /root/.ssh/authorized_keys
-chmod 600 /root/.ssh/authorized_keys
+if [ -f root_authorized_key ]; then
+    cp root_authorized_key /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+fi
+if [ -f root_authorized_key_file ]; then
+    cat root_authorized_key_file >>/root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+fi
 
 echo "Aardsoft Combustion image" >/etc/issue.d/combustion
