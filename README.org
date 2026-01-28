@@ -1,0 +1,15 @@
+* Combustion
+
+** Adding extra scripts
+
+- In the deployed directory, next to the index.html file, create a file scripts.yaml that defines an array of dicts with keys "name" (the option name presented to the user), "filename" (a script file under scripts/), and an optional "preload: true" if the script should be run before the standard combustion activities (i.e. setting the root ssh keys).
+- The script files will be executed in lexical order, so adding a numeric prefix will order their execution. The preload and non-preload scripts have separate namespaces for this.
+
+#+BEGIN_EXAMPLE
+- name: Some script
+  filename: 30-some-script.sh
+  preload: true
+
+- name: Other script
+  filename: 50-other-script.sh
+#+END_EXAMPLE

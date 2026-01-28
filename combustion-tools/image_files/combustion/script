@@ -4,6 +4,13 @@ set -e
 
 echo "Aardsoft Combustion image (incomplete)" >/etc/issue.d/combustion
 
+if [ -d scripts/before ]; then
+    # using ls instead of echo will sort in the order they should be executed
+    for script in $(ls scripts/before); do
+	./scripts/before/$script
+    done
+fi
+
 mkdir -p /root/.ssh
 chmod 700 /root/.ssh
 if [ -f root_authorized_key ]; then
@@ -13,6 +20,13 @@ fi
 if [ -f root_authorized_key_file ]; then
     cat root_authorized_key_file >>/root/.ssh/authorized_keys
     chmod 600 /root/.ssh/authorized_keys
+fi
+
+if [ -d scripts/after ]; then
+    # using ls instead of echo will sort in the order they should be executed
+    for script in $(ls scripts/after); do
+        ./scripts/after/$script
+    done
 fi
 
 echo "Aardsoft Combustion image" >/etc/issue.d/combustion

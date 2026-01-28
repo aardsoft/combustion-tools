@@ -2,6 +2,8 @@ use std::io::{Cursor, Error, Write};
 
 use fatfs::ReadWriteSeek;
 use include_dir::{Dir, include_dir};
+use js_sys::{Array, Map};
+use serde_derive::Deserialize;
 use wasm_bindgen::prelude::*;
 
 static IMAGE_SIZE: usize = 1 << 20; // one MiB
@@ -74,11 +76,48 @@ pub fn image_add_file(image: &mut [u8], path: &str, contents: Vec<u8>) -> Result
     image_add_file_internal(image, path, &contents).map_err(|e| format!("{e}"))
 }
 
+fn image_create_dir_internal(image: &mut [u8], path: &str) -> Result<(), Error> {
+    let mut seekable_image = Cursor::new(image);
+
+    let options = fatfs::FsOptions::new();
+    let fs = fatfs::FileSystem::new(&mut seekable_image, options)?;
+    fs.root_dir().create_dir(path)?;
+    Ok(())
+}
+
+#[wasm_bindgen]
+/// Create a file inside the given FAT image.
+pub fn image_create_dir(image: &mut [u8], path: &str) -> Result<(), String> {
+    image_create_dir_internal(image, path).map_err(|e| format!("{e}"))
+}
+
 #[wasm_bindgen]
 /// Create a text file inside the given FAT image.
 /// The contents must be valid UTF-8.
 pub fn image_add_text_file(image: &mut [u8], path: &str, contents: &str) -> Result<(), String> {
     image_add_file_internal(image, path, contents.as_bytes()).map_err(|e| format!("{e}"))
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ScriptOption {
+    name: String,
+    filename: String,
+    preload: Option<bool>,
+}
+
+#[wasm_bindgen]
+pub fn parse_options(script: &str) -> Result<Array, String> {
+    let result = Array::new();
+    let parsed: Result<Vec<ScriptOption>, _> = serde_norway::from_str(script);
+    let vec = parsed.map_err(|e| format!("{e}"))?;
+    for option in vec {
+        let elem = Map::new();
+        elem.set(&JsValue::from_str("name"), &JsValue::from_str(&option.name));
+        elem.set(&JsValue::from_str("filename"), &JsValue::from_str(&option.filename));
+        elem.set(&JsValue::from_str("preload"), &JsValue::from_bool(option.preload.is_some_and(|b| b)));
+        result.push(&elem);
+    }
+    Ok(result)
 }
 
 #[cfg(test)]
