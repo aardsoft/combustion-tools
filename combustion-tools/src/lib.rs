@@ -102,6 +102,7 @@ pub fn image_add_text_file(image: &mut [u8], path: &str, contents: &str) -> Resu
 struct ScriptOption {
     name: String,
     filename: String,
+    tag: Option<String>,
     preload: Option<bool>,
 }
 
@@ -114,6 +115,9 @@ pub fn parse_options(script: &str) -> Result<Array, String> {
         let elem = Map::new();
         elem.set(&JsValue::from_str("name"), &JsValue::from_str(&option.name));
         elem.set(&JsValue::from_str("filename"), &JsValue::from_str(&option.filename));
+        if let Some(tag) = &option.tag {
+            elem.set(&JsValue::from_str("tag"), &JsValue::from_str(tag));
+        }
         elem.set(&JsValue::from_str("preload"), &JsValue::from_bool(option.preload.is_some_and(|b| b)));
         result.push(&elem);
     }
