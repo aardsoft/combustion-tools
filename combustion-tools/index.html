@@ -14,6 +14,10 @@
 	<label for="rootFileSelect">Alternately, upload a file containing the authorized keys:</label>
 	<p><input type="file" id="rootFileSelect"/></p>
 	<p id="options"></p>
+	<h2>Custom scripts</h2>
+	<p id="customScripts"></p>
+	<label for="customScript">You can include custom scripts in the image. They will be executed in alphabetical order.</label><br/>
+	<input type="file" id="customScriptSelect"/>
 	<hr/>
 	<input type="button" id="generateButton" value="Download image" disabled/>
 	<h1 id="jsBlocked">Please ensure Javascript is not blocked, in order to use this page.</h1>
@@ -39,7 +43,42 @@
 			}
 			document.getElementById('generateButton').disabled = true;
 			const file = document.getElementById('rootFileSelect').files[0]
-			reader.readAsBinaryString(rootFileSelect.files[0]);
+			reader.readAsBinaryString(file);
+		}
+		var customScriptArray = new Array();
+		document.getElementById('customScriptSelect').addEventListener('change', readScript, false);
+		customScriptContent = null;
+		function readScript() {
+			customScriptContent = null;
+			const reader = new FileReader();
+			const file = document.getElementById('customScriptSelect').files[0]
+			reader.onload = (evt) => {
+				customScriptContent = evt.target.result;
+				var m = new Map();
+				m.set("name", file.name);
+				m.set("content", customScriptContent);
+				customScriptArray.push(m);
+				renderCustomScripts();
+			}
+			reader.readAsBinaryString(file);
+		}
+		function renderCustomScripts() {
+			customScriptArray.sort(function(a, b) {
+				const nameA = a.get("name");
+				const nameB = b.get("name");
+				if (nameA < nameB) {
+					return -1;
+				}
+				if (nameA > nameB) {
+					return 1;
+				}
+				return 0;
+			});
+			newHTML = "";
+			customScriptArray.forEach(function(script, i) {
+				newHTML += "Include: " + script.get("name") + "<br/>";
+			});
+			document.getElementById('customScripts').innerHTML = newHTML;
 		}
 	</script>
 
@@ -74,7 +113,15 @@
 							.then(result => result.text())
 							.then(text => image_add_text_file(image, path + "/" + filename, text)); 
 					}
-				};
+				}
+				for (const [i, script] of customScriptArray.entries()) {
+					let filename = script.get("name");
+					let text = script.get("content");
+					let path = "combustion/scripts/custom";
+					image_create_dir(image, "combustion/scripts");
+					image_create_dir(image, path);
+					image_add_text_file(image, path + "/" + filename, text);
+				}
 
 				var link = document.getElementById('downloadLink');
 				var blob = new Blob([image], { type: 'application/octet-stream' });

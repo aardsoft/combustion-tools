@@ -29,4 +29,11 @@ if [ -d scripts/after ]; then
     done
 fi
 
+if [ -d scripts/custom ]; then
+    # using ls instead of echo will sort in the order they should be executed
+    for script in $(ls scripts/custom); do
+        ./scripts/custom/$script
+    done
+fi
+
 echo "Aardsoft Combustion image" >/etc/issue.d/combustion
