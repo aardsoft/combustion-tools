@@ -88,7 +88,7 @@
 		await init();
 		var button = document.getElementById('generateButton');
 		button.addEventListener('click', async (event) => {
-			try {
+			// try {
 				var image = init_image();
 				var imageFileName = "combustion";
 				var rootKey = document.getElementById("rootKey").value;
@@ -97,10 +97,10 @@
 				}
 				if (rootKey) {
 					rootKey += '\n';
-					image_add_text_file(image, "combustion/root_authorized_key", rootKey);
+					image = image_add_text_file(image, "combustion/root_authorized_key", rootKey);
 				}
 				if (rootFileContent) {
-					image_add_text_file(image, "combustion/root_authorized_key_file", rootFileContent);
+					image = image_add_text_file(image, "combustion/root_authorized_key_file", rootFileContent);
 				}
 
 				for (const [i, option] of options.entries()) {
@@ -112,20 +112,20 @@
 						}
 						let dir = options[i].get("preload") ? "before" : "after";
 						let path = "combustion/scripts/" + dir;
-						image_create_dir(image, "combustion/scripts");
-						image_create_dir(image, path);
+						image = image_create_dir(image, "combustion/scripts");
+						image = image_create_dir(image, path);
 						await fetch("scripts/" + filename)
 							.then(result => result.text())
-							.then(text => image_add_text_file(image, path + "/" + filename, text)); 
+							.then(text => image = image_add_text_file(image, path + "/" + filename, text)); 
 					}
 				}
 				for (const [i, script] of customScriptArray.entries()) {
 					let filename = script.get("name");
 					let text = script.get("content");
 					let path = "combustion/scripts/custom";
-					image_create_dir(image, "combustion/scripts");
-					image_create_dir(image, path);
-					image_add_text_file(image, path + "/" + filename, text);
+					image = image_create_dir(image, "combustion/scripts");
+					image = image_create_dir(image, path);
+					image = image_add_text_file(image, path + "/" + filename, text);
 				}
 
 				imageFileName += ".img";
@@ -134,9 +134,9 @@
 				var blob = new Blob([image], { type: 'application/octet-stream' });
 				link.href = window.URL.createObjectURL(blob);
 				link.click();
-			} catch (e) {
-				document.getElementById('errorMessage').innerHTML = "Internal error: " + e;
-			}
+			// } catch (e) {
+			// 	document.getElementById('errorMessage').innerHTML = "Internal error: " + e;
+			// }
 		});
 		// load the configurable options
 		let response = await fetch("./scripts.yaml");

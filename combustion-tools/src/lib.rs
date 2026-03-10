@@ -1,4 +1,4 @@
-use std::io::{Cursor, Error, Write};
+use std::io::{Cursor, Error, Read, Write};
 
 use fatfs::ReadWriteSeek;
 use include_dir::{Dir, include_dir};
@@ -6,8 +6,9 @@ use js_sys::{Array, Map};
 use serde_derive::Deserialize;
 use wasm_bindgen::prelude::*;
 
-static IMAGE_SIZE: usize = 1 << 20; // one MiB
-static INPUT_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/image_files");
+const IMAGE_SIZE: usize = 1 << 20; // one MiB
+const VOLUME_LABEL: [u8; 11] = *b"combustion ";
+const INPUT_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/image_files");
 
 fn fat_add_file<T: ReadWriteSeek>(
     root: &mut fatfs::Dir<T>,
@@ -18,6 +19,15 @@ fn fat_add_file<T: ReadWriteSeek>(
     fat_file.truncate()?;
     fat_file.write_all(contents)?;
     fat_file.flush()
+}
+
+/// Create a new, empty image of the given size.
+/// Use `into_inner()` on the returned cursor to get the bytes.
+fn new_image(size: usize) -> Result<Cursor<Vec<u8>>, Error> {
+    let mut seekable_image = Cursor::new(vec![0; size]);
+    let options = fatfs::FormatVolumeOptions::new().volume_label(VOLUME_LABEL);
+    fatfs::format_volume(&mut seekable_image, options)?;
+    Ok(seekable_image)
 }
 
 /// Copy the initial statically-defined set of files into the FAT image.
@@ -37,11 +47,30 @@ fn populate_image<T: ReadWriteSeek>(
     Ok(())
 }
 
-fn init_image_internal() -> Result<Vec<u8>, Error> {
-    let mut seekable_image = Cursor::new(vec![0; IMAGE_SIZE]);
-    let options = fatfs::FormatVolumeOptions::new().volume_label(*b"combustion ");
-    fatfs::format_volume(&mut seekable_image, options)?;
+/// Recursively copy all files and directories from src to dst
+fn copy_all<T: ReadWriteSeek, U: ReadWriteSeek>(src: fatfs::Dir<T>, dst: fatfs::Dir<U>) -> Result<(), Error> {
+    let mut contents = Vec::new();
+    for entry in src.iter() {
+        let entry = entry?;
+        let name = entry.file_name();
+        if name == "." || name == ".." {
+            continue;
+        } else if entry.is_dir() {
+            let dst_dir = dst.create_dir(&name)?;
+            copy_all(entry.to_dir(), dst_dir)?;
+        } else {
+            let mut dst_file = dst.create_file(&name)?;
+            entry.to_file().read_to_end(&mut contents)?;
+            dst_file.write_all(&contents)?;
+            dst_file.flush()?;
+            contents.clear();
+        }
+    }
+    Ok(())
+}
 
+fn init_image_internal() -> Result<Vec<u8>, Error> {
+    let mut seekable_image = new_image(IMAGE_SIZE)?;
     {
         let options = fatfs::FsOptions::new();
         let fs = fatfs::FileSystem::new(&mut seekable_image, options)?;
@@ -72,8 +101,10 @@ fn image_add_file_internal(image: &mut [u8], path: &str, contents: &[u8]) -> Res
 
 #[wasm_bindgen]
 /// Create a file inside the given FAT image.
-pub fn image_add_file(image: &mut [u8], path: &str, contents: Vec<u8>) -> Result<(), String> {
-    image_add_file_internal(image, path, &contents).map_err(|e| format!("{e}"))
+pub fn image_add_file(image: &[u8], path: &str, contents: Vec<u8>) -> Result<Vec<u8>, String> {
+    resize_loop(image, |image| {
+        image_add_file_internal(image, path, &contents)
+    })
 }
 
 fn image_create_dir_internal(image: &mut [u8], path: &str) -> Result<(), Error> {
@@ -87,15 +118,44 @@ fn image_create_dir_internal(image: &mut [u8], path: &str) -> Result<(), Error> 
 
 #[wasm_bindgen]
 /// Create a file inside the given FAT image.
-pub fn image_create_dir(image: &mut [u8], path: &str) -> Result<(), String> {
-    image_create_dir_internal(image, path).map_err(|e| format!("{e}"))
+pub fn image_create_dir(image: &[u8], path: &str) -> Result<Vec<u8>, String> {
+    resize_loop(image, |image| image_create_dir_internal(image, path))
 }
 
 #[wasm_bindgen]
 /// Create a text file inside the given FAT image.
 /// The contents must be valid UTF-8.
-pub fn image_add_text_file(image: &mut [u8], path: &str, contents: &str) -> Result<(), String> {
-    image_add_file_internal(image, path, contents.as_bytes()).map_err(|e| format!("{e}"))
+pub fn image_add_text_file(image: &[u8], path: &str, contents: &str) -> Result<Vec<u8>, String> {
+    resize_loop(image, |image| image_add_file_internal(image, path, contents.as_bytes()))
+}
+
+fn resize_loop<F>(image: &[u8], mut f: F) -> Result<Vec<u8>, String>
+where
+    F: FnMut(&mut [u8]) -> Result<(), Error>,
+{
+    let mut image: Vec<u8> = image.into();
+    loop {
+        match f(&mut image) {
+            Ok(_) => {
+                return Ok(image);
+            }
+            // TODO: this has to be adapted if we upgrade fatfs to latest master
+            Err(e) if e.to_string() == "No space left on device" => {
+                let mut new_seekable_image = new_image(image.len() * 2).map_err(|e| format!("{e}"))?;
+                let mut old_seekable_image = Cursor::new(image);
+                let options = fatfs::FsOptions::new();
+                {
+                let new_fs = fatfs::FileSystem::new(&mut new_seekable_image, options).map_err(|e| format!("{e}"))?;
+                let old_fs = fatfs::FileSystem::new(&mut old_seekable_image, options).map_err(|e| format!("{e}"))?;
+                copy_all(old_fs.root_dir(), new_fs.root_dir()).map_err(|e| format!("{e}"))?;
+                }
+                image = new_seekable_image.into_inner();
+            }
+            Err(e) => {
+                return Err(format!("{e}"));
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -114,11 +174,17 @@ pub fn parse_options(script: &str) -> Result<Array, String> {
     for option in vec {
         let elem = Map::new();
         elem.set(&JsValue::from_str("name"), &JsValue::from_str(&option.name));
-        elem.set(&JsValue::from_str("filename"), &JsValue::from_str(&option.filename));
+        elem.set(
+            &JsValue::from_str("filename"),
+            &JsValue::from_str(&option.filename),
+        );
         if let Some(tag) = &option.tag {
             elem.set(&JsValue::from_str("tag"), &JsValue::from_str(tag));
         }
-        elem.set(&JsValue::from_str("preload"), &JsValue::from_bool(option.preload.is_some_and(|b| b)));
+        elem.set(
+            &JsValue::from_str("preload"),
+            &JsValue::from_bool(option.preload.is_some_and(|b| b)),
+        );
         result.push(&elem);
     }
     Ok(result)
