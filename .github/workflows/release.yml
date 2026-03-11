@@ -33,15 +33,12 @@ jobs:
           toolchain: "1.87.0"
 
       - name: Install wasm-pack
-        working-directory: combustion-tools/
         run: cargo install wasm-pack
 
       - name: Build
-        working-directory: combustion-tools/
         run: wasm-pack build --target web
 
       - name: Install files
-        working-directory: combustion-tools/
         run: |
           mkdir pages
           cp index.html pages/

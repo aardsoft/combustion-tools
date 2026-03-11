@@ -25,7 +25,6 @@ jobs:
           components: rustfmt
 
       - name: fmt
-        working-directory: combustion-tools/
         run: cargo fmt --check
 
   clippy:
@@ -42,7 +41,6 @@ jobs:
           components: clippy
 
       - name: clippy
-        working-directory: combustion-tools/
         run: cargo clippy
 
   test:
@@ -58,7 +56,6 @@ jobs:
           toolchain: "1.87.0"
 
       - name: Run tests
-        working-directory: combustion-tools/
         run: cargo test
 
   build:
@@ -74,9 +71,7 @@ jobs:
           toolchain: "1.87.0"
 
       - name: Install wasm-pack
-        working-directory: combustion-tools/
         run: cargo install wasm-pack
 
       - name: Test if it builds for WASM
-        working-directory: combustion-tools/
         run: wasm-pack build --target web
