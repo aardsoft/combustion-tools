@@ -1,5 +1,35 @@
 * Combustion
 
+** Building and testing the combustion-tools webpage
+
+Build the WASM tools with this command:
+
+#+BEGIN_SRC bash
+wasm-pack build --target web
+#+END_SRC
+
+Before doing this, you may have to install rust and cargo (either via rustup or your distro packages), and you have to do:
+
+#+BEGIN_SRC bash
+cargo install wasm-pack
+#+END_SRC
+
+Local testing can be done with the simple-http-server tool, like this:
+
+#+BEGIN_SRC bash
+simple-http-server -p 8008 --nocache --cors .
+#+END_SRC
+
+It can also be installed with cargo install.
+
+Note that you have to rebuild the wasm pack every time you change the Rust code, for the changes to take effect on the web page.
+
+** Deploying the combustion-tools webpage
+
+The index.html file and the pkg/ subdirectory need to be installed at the web server. You may also deploy extra scripts next to index.html (see below). The page runs without any other server support.
+
+Tagging a commit with combustion-x.y.z (numeric x, y, and z) and pushing the tag to github will trigger a deployment to our github pages for the repo. This is controlled by .github/workflows/release.yml
+
 ** Adding extra scripts
 
 - In the deployed directory, next to the index.html file, create a file scripts.yaml that defines an array of dicts with keys "name" (the option name presented to the user), "filename" (a script file under scripts/), an optional "tag" (a short text added to the image filename) and an optional "preload: true" if the script should be run before the standard combustion activities (i.e. setting the root ssh keys).
