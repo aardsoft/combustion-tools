@@ -1,1 +1,0 @@
-ansible_ssh_common_args: -o ProxyCommand="ssh -W %h:%p -q {{hop_user|default('management')}}@{{hop_host|default('microgw')}}"
