@@ -32,8 +32,22 @@ Tagging a commit with combustion-x.y.z (numeric x, y, and z) and pushing the tag
 
 ** Adding extra scripts
 
-- In the deployed directory, next to the index.html file, create a file scripts.yaml that defines an array of dicts with keys "name" (the option name presented to the user), "filename" (a script file under scripts/), an optional "tag" (a short text added to the image filename) and an optional "preload: true" if the script should be run before the standard combustion activities (i.e. setting the root ssh keys).
-- The script files will be executed in lexical order, so adding a numeric prefix will order their execution. The preload and non-preload scripts have separate namespaces for this.
+In the deployed directory, next to the index.html file, create a file scripts.yaml that defines an array of dicts with keys:
+- "name" (the option name presented to the user)
+- "filename" (a script file under scripts/)
+- an optional "tag" (a short text added to the image filename)
+- an optional "preload: true" if the script should be run before the standard combustion activities (i.e. setting the root ssh keys).
+- an optional "variables:" dict (defining template variables, see below)
+
+The script files will be executed in lexical order, so adding a numeric prefix will order their execution. The preload and non-preload scripts have separate namespaces for this.
+
+The scripts can contain template variables in the form {{VARNAME}} which will be substituted with values provided by the user of the webpage. This is configured in the "variables:" section of the script yaml, which contains an array of dicts. Each dict has these keys:
+- "name:" (the name of the variable in the script, must be alphanumeric + underscore)
+- "label:" (the user-facing label for this variable in the input form)
+- "help:" (help text provided to the user for this variable)
+- "optional: true" (if the user can omit the value for this variable)
+
+Any variable in the script that is not defined in the yaml or not provided by the user will be deleted from the script, so that the {{VARNAME}} string disappears. The script can check for this by testing if "{{VARNAME}}" is the empty string.
 
 #+BEGIN_EXAMPLE
 - name: Some script
@@ -43,4 +57,8 @@ Tagging a commit with combustion-x.y.z (numeric x, y, and z) and pushing the tag
 
 - name: Other script
   filename: 50-other-script.sh
+  variables:
+    - name: STATIC_IP
+      label: "Static IP"
+      help: "The IP address to use for this container."
 #+END_EXAMPLE
