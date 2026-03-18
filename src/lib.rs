@@ -48,7 +48,10 @@ fn populate_image<T: ReadWriteSeek>(
 }
 
 /// Recursively copy all files and directories from src to dst
-fn copy_all<T: ReadWriteSeek, U: ReadWriteSeek>(src: fatfs::Dir<T>, dst: fatfs::Dir<U>) -> Result<(), Error> {
+fn copy_all<T: ReadWriteSeek, U: ReadWriteSeek>(
+    src: fatfs::Dir<T>,
+    dst: fatfs::Dir<U>,
+) -> Result<(), Error> {
     let mut contents = Vec::new();
     for entry in src.iter() {
         let entry = entry?;
@@ -126,7 +129,9 @@ pub fn image_create_dir(image: &[u8], path: &str) -> Result<Vec<u8>, String> {
 /// Create a text file inside the given FAT image.
 /// The contents must be valid UTF-8.
 pub fn image_add_text_file(image: &[u8], path: &str, contents: &str) -> Result<Vec<u8>, String> {
-    resize_loop(image, |image| image_add_file_internal(image, path, contents.as_bytes()))
+    resize_loop(image, |image| {
+        image_add_file_internal(image, path, contents.as_bytes())
+    })
 }
 
 fn resize_loop<F>(image: &[u8], mut f: F) -> Result<Vec<u8>, String>
@@ -141,13 +146,16 @@ where
             }
             // TODO: this has to be adapted if we upgrade fatfs to latest master
             Err(e) if e.to_string() == "No space left on device" => {
-                let mut new_seekable_image = new_image(image.len() * 2).map_err(|e| format!("{e}"))?;
+                let mut new_seekable_image =
+                    new_image(image.len() * 2).map_err(|e| format!("{e}"))?;
                 let mut old_seekable_image = Cursor::new(image);
                 let options = fatfs::FsOptions::new();
                 {
-                let new_fs = fatfs::FileSystem::new(&mut new_seekable_image, options).map_err(|e| format!("{e}"))?;
-                let old_fs = fatfs::FileSystem::new(&mut old_seekable_image, options).map_err(|e| format!("{e}"))?;
-                copy_all(old_fs.root_dir(), new_fs.root_dir()).map_err(|e| format!("{e}"))?;
+                    let new_fs = fatfs::FileSystem::new(&mut new_seekable_image, options)
+                        .map_err(|e| format!("{e}"))?;
+                    let old_fs = fatfs::FileSystem::new(&mut old_seekable_image, options)
+                        .map_err(|e| format!("{e}"))?;
+                    copy_all(old_fs.root_dir(), new_fs.root_dir()).map_err(|e| format!("{e}"))?;
                 }
                 image = new_seekable_image.into_inner();
             }
@@ -164,6 +172,15 @@ struct ScriptOption {
     filename: String,
     tag: Option<String>,
     preload: Option<bool>,
+    variables: Option<Vec<VariableDefinition>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct VariableDefinition {
+    name: String,
+    label: String,
+    help: String,
+    optional: Option<bool>,
 }
 
 #[wasm_bindgen]
@@ -185,6 +202,21 @@ pub fn parse_options(script: &str) -> Result<Array, String> {
             &JsValue::from_str("preload"),
             &JsValue::from_bool(option.preload.is_some_and(|b| b)),
         );
+        let varsjs = Array::new();
+        if let Some(vars) = option.variables {
+            for var in vars {
+                let varelem = Map::new();
+                varelem.set(&JsValue::from_str("name"), &JsValue::from_str(&var.name));
+                varelem.set(&JsValue::from_str("label"), &JsValue::from_str(&var.label));
+                varelem.set(&JsValue::from_str("help"), &JsValue::from_str(&var.help));
+                varelem.set(
+                    &JsValue::from_str("optional"),
+                    &JsValue::from_bool(var.optional.is_some_and(|b| b)),
+                );
+                varsjs.push(&varelem);
+            }
+        }
+        elem.set(&JsValue::from_str("variables"), &varsjs);
         result.push(&elem);
     }
     Ok(result)

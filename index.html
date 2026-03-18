@@ -14,6 +14,7 @@
 	<label for="rootFileSelect">Alternately, upload a file containing the authorized keys:</label>
 	<p><input type="file" id="rootFileSelect"/></p>
 	<p id="options"></p>
+	<div id="settings"></div>
 	<h2>Custom scripts</h2>
 	<p id="customScripts"></p>
 	<label for="customScript">You can include custom scripts in the image. They will be executed in alphabetical order.</label><br/>
@@ -145,15 +146,72 @@
 			try {
 				var options = parse_options(scriptconfigs);
 				let elem = document.getElementById("options");
+				let settings = document.getElementById("settings");
+				let settings_empty = true;
+				let settings_seen = new Map();
 				if (options.length > 0) {
 					elem.innerHTML += "<h2>Options</h2>";
 				}
 				options.forEach(function(option, i) {
-					elem.innerHTML += "<input type=\"checkbox\" id=\"check_" + i + "\"/><label for=\"check_" + i + "\">" + option.get("name") + "</label><br/>";
+					let check_id = "check_" + i;
+					elem.innerHTML += "<input type=\"checkbox\" id=\"" + check_id + "\"/><label for=\"" + check_id + "\">" + option.get("name") + "</label><br/>";
+					option.get("variables").forEach(function(variable, i) {
+						if (settings_empty) {
+							settings.innerHTML += "<h2>Settings</h2>";
+							settings_empty = false;
+						}
+						let name = variable.get("name");
+						if (!settings_seen.has(name)) {
+							let id = "setting_" + name;
+							let p_id = "p_setting_" + name;
+							settings_seen.set(name, true);
+							settings.innerHTML += "<p id=\"" + p_id + "\" style=\"display:none\"><label for=\"" + name + "\"> " + variable.get("label") + ": </label><input type=\"text\" id=\"" + id + "\" disabled=yes><br/>" + variable.get("help") + "</p>";
+						}
+					});
+				});
+				// This is done in a separate loop because updating the innerHTML
+				// will wipe the previous event listeners.
+				options.forEach(function(option, i) {
+					let check_id = "check_" + i;
+					let checkelem = document.getElementById(check_id);
+					checkelem.addEventListener('input', function() {
+						recalc_settings_enabled(options);
+					});
+
 				});
 			} catch(e) {
 				document.getElementById('errorMessage').innerHTML = "Internal error: " + e;
 			}
+		}
+		function recalc_settings_enabled(options) {
+			// First turn them all off, then turn on the ones used by checked scripts.
+			// This makes it work when multiple scripts share the same variables.
+			options.forEach(function(option, i) {
+				option.get("variables").forEach(function(variable, i) {
+					let name = variable.get("name");
+					let id = "setting_" + name;
+					let field = document.getElementById(id);
+					let p_id = "p_setting_" + name;
+					let p = document.getElementById(p_id);
+					field.disabled = true;
+					p.style.display = "none";
+				});
+			});
+			options.forEach(function(option, i) {
+				let check_id = "check_" + i;
+				let checkelem = document.getElementById(check_id);
+				option.get("variables").forEach(function(variable, i) {
+					let name = variable.get("name");
+					let id = "setting_" + name;
+					let field = document.getElementById(id);
+					let p_id = "p_setting_" + name;
+					let p = document.getElementById(p_id);
+					if (checkelem.checked) {
+						field.disabled = false;
+						p.style.display = "block";
+					}
+				});
+			});
 		}
 	</script>
 </body>
