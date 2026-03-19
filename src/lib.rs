@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{Cursor, Error, Read, Write};
 
 use fatfs::ReadWriteSeek;
@@ -222,6 +223,29 @@ pub fn parse_options(script: &str) -> Result<Array, String> {
     Ok(result)
 }
 
+#[wasm_bindgen]
+pub fn substitute(script: &str, names: Vec<String>, values: Vec<String>) -> String {
+    assert_eq!(names.len(), values.len());
+    let mut map = HashMap::with_capacity(names.len());
+    for i in 0..names.len() {
+        map.insert(&*names[i], &*values[i]);
+    }
+    let mut new_s = String::with_capacity(script.len());
+    let mut last_end = 0;
+    for (start, _) in script.match_indices("{{") {
+        new_s.push_str(&script[last_end..start]);
+        if let Some(length) = script[start + 2..].find("}}") {
+            let name = script[start + 2..start + 2 + length].trim();
+            if let Some(value) = map.get(name) {
+                new_s.push_str(value);
+            }
+            last_end = start + 2 + length + 2;
+        }
+    }
+    new_s.push_str(&script[last_end..]);
+    new_s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,5 +268,29 @@ mod tests {
         let n = f.read_to_end(&mut bytes).unwrap();
         assert_eq!(n, contents.len());
         assert_eq!(&bytes, contents);
+    }
+
+    #[test]
+    fn test_substitute() {
+        let in_script = "testing {{ NAME1 }} and {{ NAME2 }}";
+        let names = vec!["NAME1".to_owned()];
+        let values = vec!["REPLACED".to_owned()];
+        let out_script = substitute(in_script, names, values);
+        assert_eq!(out_script, "testing REPLACED and ");
+
+        // test substitutions at the beginning and end of the string
+        let in_script = "{{ NAME1 }} testing {{ NAME2 }}";
+        let names = vec!["NAME1".to_owned(), "NAME2".to_owned()];
+        let values = vec!["REPLACED".to_owned(), "ALSO".to_owned()];
+        let out_script = substitute(in_script, names.clone(), values.clone());
+        assert_eq!(out_script, "REPLACED testing ALSO");
+
+        // test substitutions with no space between them
+        let in_script = "testing {{NAME1}}{{NAME2}}";
+        let names = vec!["NAME1".to_owned(), "NAME2".to_owned()];
+        let values = vec!["REPLACED".to_owned(), "ALSO".to_owned()];
+        let out_script = substitute(in_script, names.clone(), values.clone());
+        assert_eq!(out_script, "testing REPLACEDALSO");
+
     }
 }
