@@ -4,6 +4,8 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 	<title>Aardsoft Combustion Image Generation</title>
+	<link rel="stylesheet" href="main.css">
+	<link rel="stylesheet" href="local.css">
 </head>
 <body>
 	<h1>Aardsoft Combustion Image</h1>
@@ -117,14 +119,22 @@
 						image = image_create_dir(image, path);
 						let names = new Array();
 						let values = new Array();
+						let mandatory_missing = false;
 						option.get("variables").forEach(function(variable, i) {
 							let name = variable.get("name");
 							let id = "setting_" + name;
 							let field = document.getElementById(id);
+							if (!variable.get("optional") && field.value === "") {
+								mandatory_missing = variable.get("label");
+							}
 							names.push(name);
 							values.push(field.value);
 						});
-
+						if (mandatory_missing !== false) {
+							
+							document.getElementById('errorMessage').innerHTML = `Error: ${mandatory_missing} must be filled in.`;
+							return;
+						}
 						await fetch("scripts/" + filename)
 							.then(result => {
 								if (!result.ok) {
@@ -169,7 +179,8 @@
 				}
 				options.forEach(function(option, i) {
 					let check_id = "check_" + i;
-					elem.innerHTML += "<input type=\"checkbox\" id=\"" + check_id + "\"/><label for=\"" + check_id + "\">" + option.get("name") + "</label><br/>";
+					let name = option.get("name");
+					elem.innerHTML += `<input type=\"checkbox\" id=\"${check_id}\"/><label for=\"${check_id}\">${name}</label><br/>`;
 					option.get("variables").forEach(function(variable, i) {
 						if (settings_empty) {
 							settings.innerHTML += "<h2>Settings</h2>";
@@ -179,8 +190,12 @@
 						if (!settings_seen.has(name)) {
 							let id = "setting_" + name;
 							let p_id = "p_setting_" + name;
+							let opt_class = variable.get("optional") ? "class=\"optional\"" : "class=\"mandatory\"";
+							let opt_star = variable.get("optional") ? "" : "<span class=\"mandatory\">*</span>";
+							let label = variable.get("label");
+							let help = variable.get("help");
 							settings_seen.set(name, true);
-							settings.innerHTML += "<p id=\"" + p_id + "\" style=\"display:none\"><label for=\"" + name + "\"> " + variable.get("label") + ": </label><input type=\"text\" id=\"" + id + "\" disabled=yes><br/>" + variable.get("help") + "</p>";
+							settings.innerHTML += `<p id=\"${p_id}\" style=\"display:none\" ${opt_class}><label for=\"${name}\"${opt_class}> ${label}:${opt_star} </label><input type=\"text\" id=\"${id}\" disabled=yes><br/>${help}</p>`;
 						}
 					});
 				});
