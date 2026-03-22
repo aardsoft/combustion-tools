@@ -106,12 +106,12 @@
 
 				for (const [i, option] of options.entries()) {
 					if (document.getElementById("check_" + i).checked) {
-						let filename = options[i].get("filename");
-						let tag = options[i].get("tag");
+						let filename = option.get("filename");
+						let tag = option.get("tag");
 						if (typeof tag !== "undefined") {
 							imageFileName += "_" + tag;
 						}
-						let dir = options[i].get("preload") ? "before" : "after";
+						let dir = option.get("preload") ? "before" : "after";
 						let path = "combustion/scripts/" + dir;
 						image = image_create_dir(image, "combustion/scripts");
 						image = image_create_dir(image, path);
@@ -126,7 +126,12 @@
 						});
 
 						await fetch("scripts/" + filename)
-							.then(result => result.text())
+							.then(result => {
+								if (!result.ok) {
+									throw "could not download script " + option.get("name") + ": " + result.status;
+								}
+								return result.text();
+							})
 							.then(text => image = image_add_text_file(image, path + "/" + filename, substitute(text, names, values))); 
 					}
 				}
