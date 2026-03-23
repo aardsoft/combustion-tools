@@ -26,13 +26,17 @@ Note that you have to rebuild the wasm pack every time you change the Rust code,
 
 ** Deploying the combustion-tools webpage
 
-The index.html file and the pkg/ subdirectory need to be installed at the web server. You may also deploy extra scripts next to index.html (see below). The page runs without any other server support.
+The index.html file, main.css file, and the pkg/ subdirectory need to be installed at the web server. You may also deploy extra scripts next to index.html (see below). The page runs without any other server support.
+
+You can deploy a file config.yaml to set the "title" and "description" of the page.
+
+You can deploy a file local.css to add CSS rules to the page.
 
 Tagging a commit with combustion-x.y.z (numeric x, y, and z) and pushing the tag to github will trigger a deployment to our github pages for the repo. This is controlled by .github/workflows/release.yml
 
 ** Adding extra scripts
 
-In the deployed directory, next to the index.html file, create a file scripts.yaml that defines an array of dicts with keys:
+In the deployed directory, next to the index.html file, edit the file config.yaml and add a "scripts" key that defines an array of dicts with keys:
 - "name" (the option name presented to the user)
 - "filename" (a script file under scripts/)
 - an optional "tag" (a short text added to the image filename)
@@ -50,6 +54,9 @@ The scripts can contain template variables in the form {{VARNAME}} which will be
 Any variable in the script that is not defined in the yaml or not provided by the user will be deleted from the script, so that the {{VARNAME}} string disappears. The script can check for this by testing if "{{VARNAME}}" is the empty string.
 
 #+BEGIN_EXAMPLE
+title: Aardsoft Combustion Image Generation
+description: Generate your combustion images here.
+scripts:
 - name: Some script
   filename: 30-some-script.sh
   tag: some

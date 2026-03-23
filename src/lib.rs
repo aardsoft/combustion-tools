@@ -168,6 +168,13 @@ where
 }
 
 #[derive(Debug, Clone, Deserialize)]
+struct Config {
+    title: String,
+    description: String,
+    scripts: Option<Vec<ScriptOption>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 struct ScriptOption {
     name: String,
     filename: String,
@@ -185,10 +192,14 @@ struct VariableDefinition {
 }
 
 #[wasm_bindgen]
-pub fn parse_options(script: &str) -> Result<Array, String> {
-    let result = Array::new();
-    let parsed: Result<Vec<ScriptOption>, _> = serde_norway::from_str(script);
-    let vec = parsed.map_err(|e| format!("{e}"))?;
+pub fn parse_config(script: &str) -> Result<Map, String> {
+    let parsed: Result<Config, _> = serde_norway::from_str(script);
+    let config = parsed.map_err(|e| format!("{e}"))?;
+    let map = Map::new();
+    map.set(&JsValue::from_str("title"), &JsValue::from_str(&config.title));
+    map.set(&JsValue::from_str("description"), &JsValue::from_str(&config.description));
+    let vec = config.scripts.unwrap_or(Vec::new());
+    let scripts = Array::new();
     for option in vec {
         let elem = Map::new();
         elem.set(&JsValue::from_str("name"), &JsValue::from_str(&option.name));
@@ -218,9 +229,10 @@ pub fn parse_options(script: &str) -> Result<Array, String> {
             }
         }
         elem.set(&JsValue::from_str("variables"), &varsjs);
-        result.push(&elem);
+        scripts.push(&elem);
     }
-    Ok(result)
+    map.set(&JsValue::from_str("scripts"), &scripts);
+    Ok(map)
 }
 
 #[wasm_bindgen]
